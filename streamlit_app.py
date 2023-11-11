@@ -13,7 +13,7 @@ import streamlit as st
 from sentence_transformers import SentenceTransformer, util
 import numpy as np
 sentences = [
-    "The sun sets over the hills.",
+    "Karthik Sthanam.",
     "A gentle breeze rustles the leaves.",
     "The city lights flicker as night falls.",
     "A cat sleeps peacefully on the windowsill.",
