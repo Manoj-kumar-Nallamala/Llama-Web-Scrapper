@@ -5,3 +5,4 @@ langchain
 beautifulsoup4
 langchain_community
 chromadb
+pysqlite3-binary
