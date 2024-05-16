@@ -2,3 +2,5 @@ streamlit
 ollama
 sentence-transformers
 langchain
+beautifulsoup4
+
