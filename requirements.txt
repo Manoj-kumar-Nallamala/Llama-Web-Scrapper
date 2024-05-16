@@ -3,4 +3,5 @@ ollama
 sentence-transformers
 langchain
 beautifulsoup4
-
+langchain_community
+chromadb
