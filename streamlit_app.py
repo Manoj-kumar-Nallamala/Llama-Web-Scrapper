@@ -10,51 +10,52 @@ Original file is located at
 
 
 import streamlit as st
-from sentence_transformers import SentenceTransformer, util
-import numpy as np
-sentences = [
-    "Karthik Sthanam.",
-    "A gentle breeze rustles the leaves.",
-    "The city lights flicker as night falls.",
-    "A cat sleeps peacefully on the windowsill.",
-    "Waves gently lap against the shore."
-]
+import ollama
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import WebBaseLoader
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import OllamaEmbeddings
 
-# Load the model
-from sentence_transformers import SentenceTransformer
-import torch
+st.title("Chat with Webpage 🌐")
+st.caption("This app allows you to chat with a webpage using local llama3 and RAG")
 
-# Initialize the model
-model = SentenceTransformer('all-MiniLM-L6-v2')
+# Get the webpage URL from the user
+webpage_url = st.text_input("Enter Webpage URL", type="default")
 
-# Embed the sentences
-embeddings = model.encode(sentences, convert_to_tensor=True)
+if webpage_url:
+    # 1. Load the data
+    loader = WebBaseLoader(webpage_url)
+    docs = loader.load()
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=10)
+    splits = text_splitter.split_documents(docs)
 
-# Save the embeddings
-torch.save(embeddings, 'sentence_embeddings.pt')
+    # 2. Create Ollama embeddings and vector store
+    embeddings = OllamaEmbeddings(model="llama3")
+    vectorstore = Chroma.from_documents(documents=splits, embedding=embeddings)
 
-# Load the precomputed embeddings for later use
-loaded_embeddings = torch.load('sentence_embeddings.pt')
+    # 3. Call Ollama Llama3 model
+    def ollama_llm(question, context):
+        formatted_prompt = f"Question: {question}\n\nContext: {context}"
+        response = ollama.chat(model='llama3', messages=[{'role': 'user', 'content': formatted_prompt}])
+        return response['message']['content']
 
+    # 4. RAG Setup
+    retriever = vectorstore.as_retriever()
 
-def find_most_similar(input_sentence, sentence_embeddings, top_k=1):
-    input_embedding = model.encode(input_sentence, convert_to_tensor=True)
-    cos_scores = util.pytorch_cos_sim(input_embedding, sentence_embeddings)[0]
-    top_results = np.argpartition(-cos_scores, range(top_k))[0:top_k]
+    def combine_docs(docs):
+        return "\n\n".join(doc.page_content for doc in docs)
 
-    similar_sentences = [(sentences[idx], cos_scores[idx].item()) for idx in top_results]
-    return similar_sentences
+    def rag_chain(question):
+        retrieved_docs = retriever.invoke(question)
+        formatted_context = combine_docs(retrieved_docs)
+        return ollama_llm(question, formatted_context)
 
-# Streamlit interface
-st.title("Sentence Similarity Finder")
+    st.success(f"Loaded {webpage_url} successfully!")
 
-user_input = st.text_input("Enter a sentence")
+    # Ask a question about the webpage
+    prompt = st.text_input("Ask any question about the webpage")
 
-if user_input:
-    similar_sentences = find_most_similar(user_input, loaded_embeddings, top_k=5)
-    for sentence, score in similar_sentences:
-        st.write(f"Sentence: {sentence}")
-        st.write(f"Similarity Score: {score}")
-
-
-
+    # Chat with the webpage
+    if prompt:
+        result = rag_chain(prompt)
+        st.write(result)
